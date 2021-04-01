@@ -34,40 +34,46 @@ valid_piece(piece(Piece, Color, Coor)) :-
 
 % Movement
 
-direction(diagonal, ne,  1,  1).
-direction(diagonal, nw, -1,  1).
-direction(diagonal, se,  1, -1).
-direction(diagonal, sw, -1, -1).
-direction(straight, e,   1,  0).
-direction(straight, w,  -1,  0).
-direction(straight, n,   0,  1).
-direction(straight, s,   0, -1).
-pawn_direction(black, diagonal, se).
-pawn_direction(black, diagonal, sw).
-pawn_direction(black, straight, s).
-pawn_direction(white, diagonal, ne).
-pawn_direction(white, diagonal, nw).
-pawn_direction(white, straight, n).
+direction(n, n, 0, 1).
+direction(n, e, 1, 1).
+direction(n, w, -1, 1).
+direction(s, s, 0, -1).
+direction(s, e, 1, -1).
+direction(s, w, -1, -1).
+direction(w, w, -1, 0).
+direction(e, e, 1, 0).
 
-jump(Angle, Direction, Coor, To) :-
-  move(Angle, Direction, Coor, To);
-  move(Angle, Direction, Coor, B),
-  jump(Angle, Direction, B, To).
+direction(diagonal, D) :-
+  valid_direction(D),
+  D = direction(A, B, _, _),
+  A \= B.
 
-move(Angle, Direction, coor(File, Rank), coor(ToFile, ToRank)) :-
-  direction(Angle, Direction, FileOffset, RankOffset),
+direction(straight, D) :-
+  valid_direction(D),
+  D = direction(A, A, _, _).
+
+valid_direction(direction(A, B, C, D)) :-
+  direction(A, B, C, D).
+
+jump(Direction, Coor, To) :-
+  move(Direction, Coor, To);
+  move(Direction, Coor, B),
+  jump(Direction, B, To).
+
+move(Direction, coor(File, Rank), coor(ToFile, ToRank)) :-
+  valid_direction(Direction),
+  Direction = direction(_, _, FileOffset, RankOffset),
   plus(Rank, RankOffset, ToRank),
   rank(ToRank),
   file_index(File, Index),
   plus(Index, FileOffset, ToIndex),
   file_index(ToFile, ToIndex).
 
-move(Moves, From, To) :-
-  todo(Moves, From, To). % We have to check if a pawn has moved. It can jump two squares whenever that is not the case.
+move(piece(pawn, black, From), piece(pawn, black, To)) :-
+  move(direction(s), From, To).
 
-move(piece(pawn, C, From), piece(pawn, C, To)) :-
-  pawn_direction(C, straight, D),
-  move(_, D, From, To).
+move(piece(pawn, white, From), piece(pawn, white, To)) :-
+  move(direction(n), D, From, To).
 
 move(piece(queen, C, From), piece(queen,C, To)) :-
   jump(_, _, From, To).
@@ -81,20 +87,11 @@ move(piece(bishop, C, From), piece(bishop, C, To)) :-
 move(piece(king, C, From), piece(king, C, To)) :-
   move(_, _, From, To).
 
-% The thing with the king and the rook.
-move(Moves, MovesOut) :-
-  board(Moves, Board),
-  todo(Board).
-
 % captures
 
 capture(piece(pawn, C, From), piece(pawn, C, To)) :-
   pawn_direction(C, diagonal, D),
   move(_, D, From, To).
-
-% Also allow capturing a piece when it tries to jump past you.
-capture(piece(pawn, C, From), piece(pawn, C, To)) :-
-  todo(Moves, From, To).
 
 capture(piece(queen, C, From), piece(queen, C, To)) :-
   jump(_, _, From, To).
