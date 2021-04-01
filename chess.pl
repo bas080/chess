@@ -69,6 +69,9 @@ move(piece(pawn, C, From), piece(pawn, C, To)) :-
   pawn_direction(C, straight, D),
   move(_, D, From, To).
 
+move(piece(queen, C, From), piece(queen,C, To)) :-
+  jump(_, _, From, To).
+
 move(piece(rook, C, From), piece(rook, C, To)) :-
   jump(straight, _, From, To).
 
