@@ -34,98 +34,105 @@ valid_piece(piece(Piece, Color, Coor)) :-
 
 % Movement
 
-direction(n, n, 0, 1).
-direction(n, e, 1, 1).
-direction(n, w, -1, 1).
-direction(s, s, 0, -1).
-direction(s, e, 1, -1).
-direction(s, w, -1, -1).
-direction(w, w, -1, 0).
-direction(e, e, 1, 0).
+% Consider renaming to offset
+direction(n, n, vector(0,  1)).
+direction(n, e, vector(1,  1)).
+direction(n, w, vector(-1, 1)).
+direction(s, s, vector(0,  -1)).
+direction(s, e, vector(1,  -1)).
+direction(s, w, vector(-1, -1)).
+direction(w, w, vector(-1, 0)).
+direction(e, e, vector(1,  0)).
 
-direction(diagonal, D) :-
-  valid_direction(D),
-  D = direction(A, B, _, _),
+coor_vector(Coor, vector(Index, Rank)) :-
+  valid_coor(Coor),
+  Coor = coor(File, Rank),
+  file_index(File, Index).
+
+vector_sum(vector(A, B), vector(X, Y), vector(R, Z)) :-
+  plus(A, X, R),
+  plus(B, Y, Z).
+
+direction(knight, direction(Cardinal, Ordinal, Vector)) :-
+  direction(diagonal, direction(Cardinal, Ordinal, V1)),
+  ( D = Cardinal; D = Ordinal ),
+  direction(D, D, V2),
+  vector_sum(V1, V2, Vector).
+
+direction(diagonal, direction(A, B, V)) :-
+  direction(A, B, V),
   A \= B.
 
-direction(straight, D) :-
-  valid_direction(D),
-  D = direction(A, A, _, _).
+direction(straight, direction(A, A, V)) :-
+  direction(A, A, V).
 
-valid_direction(direction(A, B, C, D)) :-
-  direction(A, B, C, D).
+valid_direction(B) :-
+  direction(A, B).
 
-jump_angle(straight, Coor, To) :-
-  direction(straight, D),
-  jump(D, Coor, To).
+jump(Coor, To, Direction) :-
+  neighbors(Coor, To, Direction);
+  neighbors(Coor, B, Direction),
+  jump(B, To, Direction).
 
-jump_angle(diagonal, Coor, To) :-
-  direction(diagonal, D),
-  jump(D, Coor, To).
-
-jump(Direction, Coor, To) :-
-  move(Direction, Coor, To);
-  move(Direction, Coor, B),
-  jump(Direction, B, To).
-
-move(Direction, coor(File, Rank), coor(ToFile, ToRank)) :-
+neighbors(From, To, Direction) :-
   valid_direction(Direction),
-  Direction = direction(_, _, FileOffset, RankOffset),
-  rank(Rank),
-  plus(Rank, RankOffset, ToRank),
-  rank(ToRank),
-  file_index(File, Index),
-  plus(Index, FileOffset, ToIndex),
-  file_index(ToFile, ToIndex).
+  Direction = direction(_, _, V1),
+  coor_vector(From, V2),
+  vector_sum(V1, V2, V3),
+  coor_vector(To, V3).
 
-move(piece(pawn, black, From), piece(pawn, black, To)) :-
-  move(direction(s, s, _, _), From, To).
+move(piece(knight, C, From), piece(knight, C, To), Direction) :-
+  direction(knight, Direction),
+  writeln(Direction),
+  neighbors(From, To, Direction).
 
-move(piece(pawn, white, From), piece(pawn, white, To)) :-
-  move(direction(n, n, _, _), From, To).
+move(piece(pawn, black, From), piece(pawn, black, To), Direction) :-
+  Direction = direction(s, s, _),
+  neighbors(From, To, Direction).
 
-move(piece(queen, C, From), piece(queen,C, To)) :-
-  jump(_, From, To).
+move(piece(pawn, white, From), piece(pawn, white, To), Direction) :-
+  Direction = direction(n, n, _),
+  neighbors(From, To, Direction).
 
-move(piece(rook, C, From), piece(rook, C, To)) :-
-  jump_angle(straight, From, To).
+move(piece(pawn, white, coor(F, 2)), piece(pawn, white, coor(F, 4)), _).
+move(piece(pawn, black, coor(F, 7)), piece(pawn, black, coor(F, 5)), _).
 
-move(piece(bishop, C, From), piece(bishop, C, To)) :-
-  jump_angle(diagonal, From, To).
+move(piece(queen, C, From), piece(queen,C, To), Direction) :-
+  direction(straight, Direction);
+  direction(diagonal, Direction),
+  jump(From, To, Direction).
 
-move(piece(king, C, From), piece(king, C, To)) :-
-  move(_, From, To).
+move(piece(rook, C, From), piece(rook, C, To), Direction) :-
+  direction(straight, Direction),
+  jump(From, To, Direction).
+
+move(piece(bishop, C, From), piece(bishop, C, To), Direction) :-
+  direction(diagonal, Direction),
+  jump(From, To, Direction).
+
+move(piece(king, C, From), piece(king, C, To), Direction) :-
+  direction(straight, Direction);
+  direction(diagonal, Direction),
+  neighbors(From, To, Direction).
+
+intersections(From, Inter, Inter, Direction) :-
+  move(From, Inter, Direction).
+
+intersections(From, Inter, To, Direction) :-
+  move(From, Inter, Direction),
+  move(Inter, To, Direction).
 
 % captures
 
-capture(piece(pawn, white, From), piece(pawn, white, To)) :-
-  direction(diagonal, D),
-  D = direction(n, _, _, _),
-  move(D, From, To).
-
-capture(piece(pawn, black, From), piece(pawn, black, To)) :-
-  direction(diagonal, D),
-  D = direction(s, _, _, _),
-  move(D, From, To).
-
-capture(piece(queen, C, From), piece(queen, C, To)) :-
-  jump_angle(_, From, To).
-
-capture(piece(rook, C, From), piece(rook, C, To)) :-
-  jump_angle(straight, From, To).
-
-capture(piece(bishop, C, From), piece(bishop, C, To)) :-
-  jump(diagonal, From, To).
-
-capture(piece(king, C, From), piece(king, C, To)) :-
-  move(_, From, To).
-
 % Should check if move does not have any pieces in the way.
-valid_move(BoardIn, move(Piece, To), Board) :-
+move(BoardIn, move(Piece, To, Direction), Board) :-
   member(Piece, BoardIn),
-  move(Piece, To),
-  To = piece(_, _, Coor),
-  \+ member(piece(_, _, Coor), BoardIn), % check if place is free
+  move(Piece, To, Direction),
+  writeln('called'),
+  \+ ( % check if not intersecting with anything in the line.
+    intersections(Piece, piece(_, _, Coor), To, Direction),
+    member(piece(_, _, Coor), BoardIn)
+  ),
   subtract([To|BoardIn], [Piece], Board).
 
 board_piece(pawn, Pawn) :-
